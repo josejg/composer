@@ -652,3 +652,58 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
+
+class JsonF1Score(InContextLearningMetric):
+    """
+    """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+
+    @staticmethod
+    def f1_json_score(generation: str, ground_truth: str) -> float:
+        import json
+        eps = 1e-10
+
+        gt = json.loads(ground_truth)
+        try:
+            gen = json.loads(generation)
+            true_pos = sum(1 for k, v in gen.items() if gt.get(k) == v)
+            false_pos = sum(1 for k, v in gen.items() if gt.get(k) != v)
+            false_neg = sum(1 for k, v in gt.items() if gen.get(k) != v)
+        except json.JSONDecodeError:
+            true_pos, false_pos, false_neg =  0, 0, 0
+
+        precision = true_pos / (true_pos + false_pos + eps)
+        recall = true_pos / (true_pos + false_neg + eps)
+
+        return 2 * (precision * recall) / (precision + recall + eps)
+
+
+    def __init__(self, dist_sync_on_step: bool = False):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+
+        self.add_state('f1_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('sample_count', default=torch.tensor(0.), dist_reduce_fx='sum')
+
+    def update(self, batch, outputs: Union[Mapping, Tensor], target: Tensor) -> None:
+        """Updates the internal state with results from a new batch.
+
+        """
+        for i, output in enumerate(outputs):
+            f1 = self.f1_json_score(output, batch['ground_truth'][i])
+            self.sample_count += 1
+            self.f1_scores += f1
+
+
+    def compute(self) -> Tensor:
+        """Aggregate the state over all processes to compute the metric.
+
+        Returns:
+            loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
+        """
+        assert isinstance(self.f1_score, Tensor)
+        assert isinstance(self.sample_count, Tensor)
+        return self.f1_score.float() / self.sample_count.float()
+

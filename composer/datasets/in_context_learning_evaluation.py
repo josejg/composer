@@ -1293,6 +1293,86 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         return tokenized_example
 
 
+class JSONExtractionDataset(InContextLearningDataset):
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        kwargs['hf_loading_vars'] = {'split': 'test', **kwargs.get('hf_loading_vars', {})}
+
+        assert 'num_fewshot' not in kwargs
+        batch_mapping = {
+            'input_ids': 'prompt',
+            'ground_truth': 'response',
+            'kwargs': 'kwargs',
+        }
+
+        self.max_prompt_length = 0
+        super().__init__(
+            context_key='prompt',
+            answer_key='response',
+            tokenize_labels=False,
+            padding_side='left',
+            batch_mapping=batch_mapping,
+            *args,
+            **{**kwargs, 'num_fewshot': [0]}
+        )
+
+        self._set_max_prompt_and_answer_lengths()
+        self.dataset = self.dataset.map(self._trim_padding)
+        self.base_batch = {
+            'mode': 'generate',
+            'input_ids': [],
+            'labels': [],
+            'key': [],
+            'kwargs': [],
+            'instruction_id_list': [],
+            'prompt': [],
+            'generation_length': self.max_seq_len - self.max_prompt_length,
+        }
+        self._update_generation_kwargs(kwargs.get('generation_kwargs', {}))
+
+    def _set_max_prompt_and_answer_lengths(self):
+        """
+        Iterates through the dataset and finds the maximum prompt length and sequence lengths
+        """
+        max_prompt_length = 0
+        max_answer_length = 0
+        for example in self.dataset:
+            unpadded_example = [token for token in example[self.context_key] if token != self.pad_tok_id]
+            max_prompt_length = max(
+                max_prompt_length,
+                len(unpadded_example),
+            )
+
+            len_tokenized_answer = len(
+                self.tokenizer(example['canonical_solution'], add_special_tokens=False)['input_ids'])
+            max_answer_length = max(max_answer_length, len_tokenized_answer)
+        self.max_prompt_length = max_prompt_length
+        self.max_answer_length = max_answer_length + _MAX_ANSWER_BUFFER_LENGTH
+
+    def _trim_padding(self, example: Dict):
+        """
+        Adjusts padding to the maximum prompt length rather than max_seq_len.
+        Needs to be done after the dataset has been processed because we don't know the maximum
+        prompt length until after we've tokenized it.
+
+        Returns:
+            dataset: a HuggingFace Dataset with different padding lengths for example[self.context_key]
+        """
+        # Remove padding tokens applied during tokenization
+        unpadded_prompt = [token for token in example[self.context_key] if token != self.pad_tok_id]
+        # Reapply padding only to max_prompt_length
+        full_prompt = _trim_context(unpadded_prompt, [], self.max_prompt_length)
+        padded_context = _make_padded_input(full_prompt, [], self.max_prompt_length, self.pad_tok_id,
+                                            self.padding_side)
+
+        example[self.context_key] = padded_context
+        return example
+
+
 def build_icl_dataloader(
     icl_task_type: str,
     dataset_uri: str,
@@ -1401,6 +1481,26 @@ def build_icl_dataloader(
         effective_batchsize = batch_size
     elif icl_task_type == 'code_evaluation':
         dataset = InContextLearningCodeEvalDataset(
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            max_seq_len=max_seq_len,
+            pad_tok_id=pad_tok_id,
+            num_fewshot=num_fewshot,
+            prompt_string=prompt_string,
+            example_delimiter=example_delimiter,
+            continuation_delimiter=continuation_delimiter,
+            destination_path=destination_path,
+            prelimiter=prelimiter,
+            fewshot_random_seed=fewshot_random_seed,
+            hf_loading_vars=hf_loading_vars,
+            hf_parsing_map=hf_parsing_map,
+            pass_at_k=pass_at_k,
+            generations_per_sample=generations_per_sample,
+            generation_kwargs=generation_kwargs,
+        )
+        effective_batchsize = batch_size
+    elif icl_task_type == 'json_extraction':
+        dataset = JSONExtractionDataset(
             dataset_uri=dataset_uri,
             tokenizer=tokenizer,
             max_seq_len=max_seq_len,
