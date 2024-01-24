@@ -1318,7 +1318,8 @@ class JSONExtractionDataset(InContextLearningDataset):
             *args,
             **kwargs,
         )
-        assert self.num_fewshot == [0]
+        if self.num_fewshot != 0:
+            raise ValueError(f"num_fewshot must be 0, but is {self.num_fewshot}")
 
         self._set_max_prompt_and_answer_lengths()
         self.dataset = self.dataset.map(self._trim_padding)
@@ -1514,8 +1515,6 @@ def build_icl_dataloader(
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
-            pass_at_k=pass_at_k,
-            generations_per_sample=generations_per_sample,
             generation_kwargs=generation_kwargs,
         )
         effective_batchsize = batch_size
