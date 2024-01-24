@@ -1302,7 +1302,6 @@ class JSONExtractionDataset(InContextLearningDataset):
     ):
         kwargs['hf_loading_vars'] = {'split': 'test', **kwargs.get('hf_loading_vars', {})}
 
-        assert 'num_fewshot' not in kwargs
         batch_mapping = {
             'input_ids': 'prompt',
             'ground_truth': 'response',
@@ -1317,8 +1316,9 @@ class JSONExtractionDataset(InContextLearningDataset):
             padding_side='left',
             batch_mapping=batch_mapping,
             *args,
-            **{**kwargs, 'num_fewshot': [0]}
+            **kwargs,
         )
+        assert self.num_fewshot == [0]
 
         self._set_max_prompt_and_answer_lengths()
         self.dataset = self.dataset.map(self._trim_padding)
