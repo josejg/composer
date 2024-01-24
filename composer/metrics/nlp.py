@@ -663,6 +663,10 @@ class JsonF1Score(InContextLearningMetric):
 
     @staticmethod
     def f1_json_score(generation: str, ground_truth: str) -> float:
+        from rich.console import Console
+        console = Console()
+        console.print(generation, style='magenta')
+        console.print(ground_truth, style='green')
         import json
         eps = 1e-10
 
