@@ -1349,7 +1349,7 @@ class JSONExtractionDataset(InContextLearningDataset):
             )
 
             len_tokenized_answer = len(
-                self.tokenizer(example['canonical_solution'], add_special_tokens=False)['input_ids'])
+                self.tokenizer(example['response'], add_special_tokens=False)['input_ids'])
             max_answer_length = max(max_answer_length, len_tokenized_answer)
         self.max_prompt_length = max_prompt_length
         self.max_answer_length = max_answer_length + _MAX_ANSWER_BUFFER_LENGTH
