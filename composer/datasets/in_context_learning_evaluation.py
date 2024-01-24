@@ -1305,7 +1305,7 @@ class JSONExtractionDataset(InContextLearningDataset):
         batch_mapping = {
             'input_ids': 'prompt',
             'ground_truth': 'response',
-            'kwargs': 'kwargs',
+            'labels': 'response',
         }
 
         self.max_prompt_length = 0
@@ -1326,11 +1326,9 @@ class JSONExtractionDataset(InContextLearningDataset):
         self.base_batch = {
             'mode': 'generate',
             'input_ids': [],
+            'ground_truth': [],
             'labels': [],
-            'key': [],
-            'kwargs': [],
-            'instruction_id_list': [],
-            'prompt': [],
+            # 'prompt': [],
             'generation_length': self.max_seq_len - self.max_prompt_length,
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs', {}))

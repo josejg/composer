@@ -698,7 +698,7 @@ class JsonF1Score(InContextLearningMetric):
         for i, output in enumerate(outputs):
             f1 = self.f1_json_score(output, batch['ground_truth'][i])
             self.sample_count += 1
-            self.f1_scores += f1
+            self.f1_score += f1
 
 
     def compute(self) -> Tensor:
