@@ -1234,7 +1234,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         *args,
         **kwargs,
     ):
-        if generations_per_sample < pass_at_k:
+        if generations_per_sample < max(pass_at_k):
             raise ValueError(
                 f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
             )
@@ -1402,7 +1402,7 @@ class InContextLearningBatchCodeEvalDataset(InContextLearningCodeEvalDataset):
         super().__init__(generations_per_sample=1, pass_at_k=pass_at_k, *args, **kwargs)
         self.generations_per_sample = generations_per_sample
         dataset_size = len(self.dataset)
-        self.dataset = self.repeat_dataset(dataset)
+        self.dataset = self.repeat_dataset(self.dataset, generations_per_sample)
         self.base_batch = {
             'input_ids': [],
             'mode': 'generate',
@@ -1413,7 +1413,8 @@ class InContextLearningBatchCodeEvalDataset(InContextLearningCodeEvalDataset):
             'test_inputs': [],
             'test_outputs': [],
             'languages': [],
-            'pass_at_k': pass_at_k,
+            'sample_id': [],
+            'pass_at_k': list(pass_at_k),
             'generations_per_sample': generations_per_sample,
             'dataset_size': dataset_size,
             'generation_length': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
@@ -1439,14 +1440,16 @@ class InContextLearningBatchCodeEvalDataset(InContextLearningCodeEvalDataset):
             'languages': 'language',
             'sample_id': 'sample_id',
         }
+        self.list_keys += ['sample_id']
+        self.static_keys += ['generations_per_sample', 'dataset_size']
 
-    @staticmethod
     def repeat_dataset(self, dataset: HFDataset, repetitions: int) -> HFDataset:
         df = dataset.to_pandas()
         df['sample_id'] = df.index
         repeat_df = df.loc[df.index.repeat(repetitions)]
         # repeat_df['generation_id'] = repeat_df.groupby(level=0).cumcount()
         repeat_df.reset_index(inplace=True, drop=True)
+        from datasets import Dataset
         return Dataset.from_pandas(repeat_df)
 
 

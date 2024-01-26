@@ -753,9 +753,10 @@ class InContextLearningBatchCodeEvalAccuracy(InContextLearningMetric):
         """
 
         if not self._initialized:
-            dataset_size = batch['dataset_size'][0].item()
-            self.add_state('correct', default=torch.zeros(dataset_size), dist_reduce_fx='sum')
-            self.add_state('total', default=torch.zeros(dataset_size), dist_reduce_fx='sum')
+            dataset_size = batch['dataset_size']
+            device = batch['input_ids'].device
+            self.add_state('correct', default=torch.zeros(dataset_size, device=device), dist_reduce_fx='sum')
+            self.add_state('total', default=torch.zeros(dataset_size, device=device), dist_reduce_fx='sum')
             from composer.utils import dist
             dist.barrier()
             self._initialized = True
@@ -771,7 +772,7 @@ class InContextLearningBatchCodeEvalAccuracy(InContextLearningMetric):
                 batch['sample_id'], outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'], batch['entry_points'],
                 batch['languages']):
 
-            idx = sample_id.item()
+            idx = sample_id
             self.total[idx] += 1.0
 
             code_gen = re.split(r'\n[A-Za-z0-9#`]', code_gen)[0]  # remove everything after function ends
@@ -803,5 +804,5 @@ class InContextLearningBatchCodeEvalAccuracy(InContextLearningMetric):
         dataset_size = len(self.correct)
         n = self.num_generations
         for k in self.pass_at_k:
-            results[k] = sum([self.estimator(n, c.item(), k) for c in self.correct]) / dataset_size
+            results[f'pass@{k}'] = sum([self.estimator(n, c.item(), k) for c in self.correct]) / dataset_size
         return results
