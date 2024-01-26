@@ -1236,7 +1236,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         *args,
         **kwargs,
     ):
-        if generations_per_sample < max(pass_at_k):
+        if generations_per_sample < pass_at_k:
             raise ValueError(
                 f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
             )
@@ -1401,35 +1401,23 @@ class InContextLearningBatchCodeEvalDataset(InContextLearningCodeEvalDataset):
         *args,
         **kwargs,
     ):
-        super().__init__(generations_per_sample=1, pass_at_k=pass_at_k, *args, **kwargs)
+        # NOTE: This is not intended as the final implementation, but rather to show what would need to be changed to achive the desired behavior
+        super().__init__(generations_per_sample=1, pass_at_k=0, *args, **kwargs)
+        if generations_per_sample < max(pass_at_k):
+            raise ValueError(
+                f'generations_per_sample ({generations_per_sample}) must be greater than or equal to maximum pass_at_k ({max(pass_at_k)}) for code evaluation.'
+            )
         self.generations_per_sample = generations_per_sample
         dataset_size = len(self.dataset)
         self.dataset = self.repeat_dataset(self.dataset, generations_per_sample)
-        self.base_batch = {
-            'input_ids': [],
-            'mode': 'generate',
-            'labels': [],
-            'prompts': [],
-            'tests': [],
-            'entry_points': [],
-            'test_inputs': [],
-            'test_outputs': [],
-            'languages': [],
+        self.base_batch |= {
             'sample_id': [],
             'pass_at_k': list(pass_at_k),
             'generations_per_sample': generations_per_sample,
             'dataset_size': dataset_size,
-            'generation_length': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
-            'generation_kwargs': {
-                'pad_token_id': self.pad_tok_id,
-                'num_beams': 1,  # single beam
-                'num_return_sequences': 1, # This is 1 because we are manually replicating the dataset
-                'do_sample': True,
-                'use_cache': True,
-                'eos_token_id': self.tokenizer.eos_token_id
-            }
         }
-        self._update_generation_kwargs(kwargs.get('generation_kwargs', {}))
+        self.base_batch['generation_kwargs'] |= {'num_return_sequences': 1} # This is 1 because we are manually replicating the dataset
+        self.update_generation_kwargs(kwargs.get('generation_kwargs', {}))
 
         self.batch_mapping = {
             'input_ids': 'prompt',
