@@ -1541,27 +1541,27 @@ def build_icl_dataloader(
             generation_kwargs=generation_kwargs,
         )
         effective_batchsize = batch_size
+    # elif icl_task_type == 'code_evaluation':
+    #     dataset = InContextLearningCodeEvalDataset(
+    #         dataset_uri=dataset_uri,
+    #         tokenizer=tokenizer,
+    #         max_seq_len=max_seq_len,
+    #         pad_tok_id=pad_tok_id,
+    #         num_fewshot=num_fewshot,
+    #         prompt_string=prompt_string,
+    #         example_delimiter=example_delimiter,
+    #         continuation_delimiter=continuation_delimiter,
+    #         destination_path=destination_path,
+    #         prelimiter=prelimiter,
+    #         fewshot_random_seed=fewshot_random_seed,
+    #         hf_loading_vars=hf_loading_vars,
+    #         hf_parsing_map=hf_parsing_map,
+    #         pass_at_k=pass_at_k,
+    #         generations_per_sample=generations_per_sample,
+    #         generation_kwargs=generation_kwargs,
+    #     )
+    #     effective_batchsize = batch_size
     elif icl_task_type == 'code_evaluation':
-        dataset = InContextLearningCodeEvalDataset(
-            dataset_uri=dataset_uri,
-            tokenizer=tokenizer,
-            max_seq_len=max_seq_len,
-            pad_tok_id=pad_tok_id,
-            num_fewshot=num_fewshot,
-            prompt_string=prompt_string,
-            example_delimiter=example_delimiter,
-            continuation_delimiter=continuation_delimiter,
-            destination_path=destination_path,
-            prelimiter=prelimiter,
-            fewshot_random_seed=fewshot_random_seed,
-            hf_loading_vars=hf_loading_vars,
-            hf_parsing_map=hf_parsing_map,
-            pass_at_k=pass_at_k,
-            generations_per_sample=generations_per_sample,
-            generation_kwargs=generation_kwargs,
-        )
-        effective_batchsize = batch_size
-    elif icl_task_type == 'batch_code_evaluation':
         dataset = InContextLearningBatchCodeEvalDataset(
             dataset_uri=dataset_uri,
             tokenizer=tokenizer,
