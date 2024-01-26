@@ -1419,15 +1419,7 @@ class InContextLearningBatchCodeEvalDataset(InContextLearningCodeEvalDataset):
         self.base_batch['generation_kwargs'] |= {'num_return_sequences': 1} # This is 1 because we are manually replicating the dataset
         self.update_generation_kwargs(kwargs.get('generation_kwargs', {}))
 
-        self.batch_mapping = {
-            'input_ids': 'prompt',
-            'prompts': 'prompt_text',
-            'tests': 'test',
-            'labels': 'canonical_solution',
-            'entry_points': 'entry_point',
-            'test_inputs': 'test_inputs',
-            'test_outputs': 'test_outputs',
-            'languages': 'language',
+        self.batch_mapping |= {
             'sample_id': 'sample_id',
         }
         self.list_keys += ['sample_id']
