@@ -1351,6 +1351,107 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         return tokenized_example
 
 
+class InContextLearningBatchCodeEvalDataset(InContextLearningCodeEvalDataset):
+    """
+    A dataset that constructs batches for in-context learning code evaluation.
+
+    The input format is expected to be a jsonl file with the following fields:
+
+    - task_id: label of given task
+    - prompt: the code snippet that must be completed
+    - entry_point: the entry to the function/code snippet to generate
+    - canonical_solution: working solution
+    - test: the checker code that will run to completion if the code generation is valid and otherwise throw assertion
+    - test_inputs: list of test inputs
+    - test_outputs: list of test outputs
+    - language: the language of the code snippet
+
+    Each batch then consists of the following the structure
+
+    - input_ids: Input tensor batch x seqlen x num tokens
+    - mode: Indicates to the model that this is an ICL task and may rely on a custom code path to properly update metrics
+    - mode: always set to 'generate'
+    - labels: exact solution for the coding problem
+    - prompts: prompt for the task
+    - entry_points: list of entry points
+    - test_inputs: list of test inputs
+    - test_outputs: list of test outputs
+    - languages:  list of languages
+    - pass_at_k: passed value for pass_at_k
+    - generation_length: derrived maximum generation length
+    - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten
+      by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
+      for more details):
+
+        - pad_token_id: ID for padding token, derived automatically
+        - num_beams: how many beams to search for generations, set to 1
+        - num_return_sequences: value passed for 'generations_per_sample', how many generations per prompt
+        - do_sample: determines whether model is sampling or greedily decoding. Always set to True
+        - use_cache: Whether or not to use past key values to speed up sampling. Always set to True
+
+    Additional Args:
+        generations_per_sample (int) (defaults to 1): The number of independently computed returned sequences for each element in the batch
+        pass_at_k (int) (defaults to 1): k for how many chances the model gets to write passing code
+    """
+
+    def __init__(
+        self,
+        pass_at_k: list[int],
+        generations_per_sample: int = 50,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(generations_per_sample=1, pass_at_k=pass_at_k, *args, **kwargs)
+        self.generations_per_sample = generations_per_sample
+        dataset_size = len(self.dataset)
+        self.dataset = self.repeat_dataset(dataset)
+        self.base_batch = {
+            'input_ids': [],
+            'mode': 'generate',
+            'labels': [],
+            'prompts': [],
+            'tests': [],
+            'entry_points': [],
+            'test_inputs': [],
+            'test_outputs': [],
+            'languages': [],
+            'pass_at_k': pass_at_k,
+            'generations_per_sample': generations_per_sample,
+            'dataset_size': dataset_size,
+            'generation_length': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
+            'generation_kwargs': {
+                'pad_token_id': self.pad_tok_id,
+                'num_beams': 1,  # single beam
+                'num_return_sequences': 1, # This is 1 because we are manually replicating the dataset
+                'do_sample': True,
+                'use_cache': True,
+                'eos_token_id': self.tokenizer.eos_token_id
+            }
+        }
+        self._update_generation_kwargs(kwargs.get('generation_kwargs', {}))
+
+        self.batch_mapping = {
+            'input_ids': 'prompt',
+            'prompts': 'prompt_text',
+            'tests': 'test',
+            'labels': 'canonical_solution',
+            'entry_points': 'entry_point',
+            'test_inputs': 'test_inputs',
+            'test_outputs': 'test_outputs',
+            'languages': 'language',
+            'sample_id': 'sample_id',
+        }
+
+    @staticmethod
+    def repeat_dataset(self, dataset: HFDataset, repetitions: int) -> HFDataset:
+        df = dataset.to_pandas()
+        df['sample_id'] = df.index
+        repeat_df = df.loc[df.index.repeat(repetitions)]
+        # repeat_df['generation_id'] = repeat_df.groupby(level=0).cumcount()
+        repeat_df.reset_index(inplace=True, drop=True)
+        return Dataset.from_pandas(repeat_df)
+
+
 def build_icl_dataloader(
         icl_task_type: str,
         dataset_uri: str,
@@ -1368,7 +1469,7 @@ def build_icl_dataloader(
         prelimiter: str,  # e.g. 'Question: '
         cot_delimiter: str,  # e.g. ' ### '
         fewshot_random_seed: int,
-        pass_at_k: int,
+        pass_at_k: Union[int, list[int]],
         generations_per_sample: int,
         generation_kwargs: Dict,
         early_stopping_criteria: Optional[List[str]] = None,
@@ -1459,6 +1560,26 @@ def build_icl_dataloader(
         effective_batchsize = batch_size
     elif icl_task_type == 'code_evaluation':
         dataset = InContextLearningCodeEvalDataset(
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            max_seq_len=max_seq_len,
+            pad_tok_id=pad_tok_id,
+            num_fewshot=num_fewshot,
+            prompt_string=prompt_string,
+            example_delimiter=example_delimiter,
+            continuation_delimiter=continuation_delimiter,
+            destination_path=destination_path,
+            prelimiter=prelimiter,
+            fewshot_random_seed=fewshot_random_seed,
+            hf_loading_vars=hf_loading_vars,
+            hf_parsing_map=hf_parsing_map,
+            pass_at_k=pass_at_k,
+            generations_per_sample=generations_per_sample,
+            generation_kwargs=generation_kwargs,
+        )
+        effective_batchsize = batch_size
+    elif icl_task_type == 'batch_code_evaluation':
+        dataset = InContextLearningBatchCodeEvalDataset(
             dataset_uri=dataset_uri,
             tokenizer=tokenizer,
             max_seq_len=max_seq_len,
