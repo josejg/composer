@@ -1517,15 +1517,15 @@ class Trainer:
         self.engine.run_event(Event.AFTER_LOAD)
 
         # Test Checkpoint Saving After Load
-        ckpt_test_filename = f'/tmp/composer-test-checkpoint-after-load/{save_filename}'
-        log.debug(f'Testing checkpoint save (AFTER LOAD) to {ckpt_test_filename}')
-        saved_path = checkpoint.save_checkpoint(
-            state=self.state,
-            filename=ckpt_test_filename,
-            weights_only=save_weights_only,
-            ignore_keys=save_ignore_keys,
-        )
-        log.debug(f'Checkpoint locally saved to {saved_path}')
+        # ckpt_test_filename = f'/tmp/composer-test-checkpoint-after-load/{save_filename}'
+        # log.debug(f'Testing checkpoint save (AFTER LOAD) to {ckpt_test_filename}')
+        # saved_path = checkpoint.save_checkpoint(
+        #     state=self.state,
+        #     filename=ckpt_test_filename,
+        #     weights_only=save_weights_only,
+        #     ignore_keys=save_ignore_keys,
+        # )
+        # log.debug(f'Checkpoint locally saved to {saved_path}')
 
         # reseed here. This helps with a couple of issues:
         # 1. rng state may change at Event.INIT/Event.AFTER_LOAD. For example, if an algorithm
