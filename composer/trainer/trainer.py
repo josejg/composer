@@ -1393,15 +1393,15 @@ class Trainer:
                 self.state.serialized_attributes.remove('optimizers')
 
        # Test Checkpoint Saving Before Load
-        ckpt_test_filename = f'/tmp/composer-test-checkpoint-before-load/{save_filename}'
-        log.debug(f'Testing checkpoint save (BEFORE LOAD) to {ckpt_test_filename}')
-        saved_path = checkpoint.save_checkpoint(
-            state=self.state,
-            filename=ckpt_test_filename,
-            weights_only=save_weights_only,
-            ignore_keys=save_ignore_keys,
-        )
-        log.debug(f'Checkpoint locally saved to {saved_path}')
+        # ckpt_test_filename = f'/tmp/composer-test-checkpoint-before-load/{save_filename}'
+        # log.debug(f'Testing checkpoint save (BEFORE LOAD) to {ckpt_test_filename}')
+        # saved_path = checkpoint.save_checkpoint(
+        #     state=self.state,
+        #     filename=ckpt_test_filename,
+        #     weights_only=save_weights_only,
+        #     ignore_keys=save_ignore_keys,
+        # )
+        # log.debug(f'Checkpoint locally saved to {saved_path}')
 
         # Load Checkpoint
         self._rng_state = None
